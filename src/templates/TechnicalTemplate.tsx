@@ -32,9 +32,9 @@ const TechnicalTemplate: React.FC<TemplateProps> = ({ personalInfo, experiences,
       <div style={{ padding: '28px 32px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '20px' }}>
           {personalInfo.photo && (
-            <img src={personalInfo.photo} alt="" style={{ width: '64px', height: '64px', borderRadius: '10px', objectFit: 'cover', border: `1px solid #30363d` }} />
+            <img src={personalInfo.photo} alt="" style={{ width: '64px', height: '64px', borderRadius: '10px', objectFit: 'cover', border: `1px solid #30363d`, flexShrink: 0 }} />
           )}
-          <div>
+          <div style={{ minWidth: 0 }}>
             <p style={{ fontSize: '13px', margin: 0 }}>
               <span style={{ color: PURPLE }}>const</span> <span style={{ color: BLUE }}>candidate</span> <span style={{ color: TEXT }}>=</span> <span style={{ color: '#e3b341' }}>{'{'}</span>
             </p>

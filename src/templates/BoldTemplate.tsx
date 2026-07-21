@@ -22,9 +22,9 @@ const BoldTemplate: React.FC<TemplateProps> = ({ personalInfo, experiences, educ
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
           {personalInfo.photo && (
-            <img src={personalInfo.photo} alt="" style={{ width: '78px', height: '78px', borderRadius: '14px', objectFit: 'cover', border: `3px solid ${AMBER}` }} />
+            <img src={personalInfo.photo} alt="" style={{ width: '78px', height: '78px', borderRadius: '14px', objectFit: 'cover', border: `3px solid ${AMBER}`, flexShrink: 0 }} />
           )}
-          <div>
+          <div style={{ minWidth: 0 }}>
             <h1 style={{ fontSize: '32px', fontWeight: 800, margin: 0, lineHeight: 1.05 }}>{personalInfo.fullName || 'Your Name'}</h1>
             <p style={{ fontSize: '15px', color: '#fde68a', fontWeight: 700, marginTop: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               {personalInfo.jobTitle || 'Job Title'}

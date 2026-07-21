@@ -22,10 +22,10 @@ const ClassicTemplate: React.FC<TemplateProps> = ({ personalInfo, experiences, e
           <img
             src={personalInfo.photo}
             alt=""
-            style={{ width: '84px', height: '84px', borderRadius: '9999px', objectFit: 'cover', border: '3px solid rgba(255,255,255,0.7)' }}
+            style={{ width: '84px', height: '84px', borderRadius: '9999px', objectFit: 'cover', border: '3px solid rgba(255,255,255,0.7)', flexShrink: 0 }}
           />
         )}
-        <div>
+        <div style={{ minWidth: 0 }}>
           <h1 style={{ fontSize: '28px', fontWeight: 'bold', margin: 0 }}>{personalInfo.fullName || 'Your Name'}</h1>
           <p style={{ fontSize: '18px', color: '#bfdbfe', marginTop: '4px', marginBottom: 0 }}>{personalInfo.jobTitle || 'Job Title'}</p>
 

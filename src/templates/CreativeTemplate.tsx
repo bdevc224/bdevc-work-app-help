@@ -15,12 +15,12 @@ const CreativeTemplate: React.FC<TemplateProps> = ({ personalInfo, experiences, 
           <img
             src={personalInfo.photo}
             alt=""
-            style={{ width: '92px', height: '92px', borderRadius: '9999px', objectFit: 'cover', border: `4px solid ${ACCENT}` }}
+            style={{ width: '92px', height: '92px', borderRadius: '9999px', objectFit: 'cover', border: `4px solid ${ACCENT}`, flexShrink: 0 }}
           />
         ) : (
-          <div style={{ width: '92px', height: '92px', borderRadius: '9999px', backgroundColor: ACCENT_SOFT, border: `4px solid ${ACCENT}` }} />
+          <div style={{ width: '92px', height: '92px', borderRadius: '9999px', backgroundColor: ACCENT_SOFT, border: `4px solid ${ACCENT}`, flexShrink: 0 }} />
         )}
-        <div>
+        <div style={{ minWidth: 0 }}>
           <h1 style={{ fontSize: '30px', fontWeight: 800, color: '#111827', margin: 0 }}>{personalInfo.fullName || 'Your Name'}</h1>
           <p style={{ fontSize: '16px', color: ACCENT, fontWeight: 700, marginTop: '2px' }}>{(personalInfo.jobTitle || 'Job Title').toUpperCase()}</p>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '14px', marginTop: '10px', fontSize: '13px', color: '#4b5563' }}>
