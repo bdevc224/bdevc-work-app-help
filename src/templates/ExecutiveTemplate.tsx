@@ -2,6 +2,9 @@
 
 import React from 'react';
 import type { TemplateProps } from './types';
+import { DescriptionText, VerticalList } from '../components/FormattedText';
+import LinksRow from '../components/LinksRow';
+import ContactLine from '../components/ContactLine';
 
 const NAVY = '#0b1f3a';
 const BRASS = '#9c7a3c';
@@ -16,7 +19,8 @@ const SectionHeading: React.FC<{ children: React.ReactNode }> = ({ children }) =
   </div>
 );
 
-const ExecutiveTemplate: React.FC<TemplateProps> = ({ personalInfo, experiences, educations, skills }) => {
+const ExecutiveTemplate: React.FC<TemplateProps> = ({ personalInfo, experiences, educations, skills, projects = [], certifications = [], languages = [], links = [], formatting }) => {
+  const bulletsFor = (section: 'experience' | 'projects' | 'skills' | 'languages') => Boolean(formatting?.enabled && formatting.sections[section]);
   return (
     <div className="bg-white shadow-xl rounded-lg overflow-hidden" style={{ fontFamily: SERIF, padding: '44px 48px' }}>
       <div style={{ textAlign: 'center' }}>
@@ -34,14 +38,13 @@ const ExecutiveTemplate: React.FC<TemplateProps> = ({ personalInfo, experiences,
           {personalInfo.jobTitle || 'Job Title'}
         </p>
         <div style={{ width: '60px', height: '1px', backgroundColor: BRASS, margin: '16px auto' }} />
-        <p style={{ fontSize: '12px', color: '#4b5563', letterSpacing: '0.02em' }}>
-          {[personalInfo.email, personalInfo.phone, personalInfo.location].filter(Boolean).join('   |   ')}
-        </p>
-        {(personalInfo.linkedin || personalInfo.website || personalInfo.github) && (
-          <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
-            {[personalInfo.website, personalInfo.linkedin, personalInfo.github].filter(Boolean).join('   |   ')}
-          </p>
-        )}
+        <ContactLine personalInfo={personalInfo} separator="   |   " style={{ fontSize: '12px', color: '#4b5563', letterSpacing: '0.02em' }} />
+        <LinksRow
+          links={links}
+          style={{ justifyContent: 'center', fontSize: '12px', marginTop: '4px' }}
+          linkStyle={{ color: '#6b7280', fontStyle: 'italic' }}
+          gap="12px"
+        />
       </div>
 
       {personalInfo.summary && (
@@ -64,7 +67,13 @@ const ExecutiveTemplate: React.FC<TemplateProps> = ({ personalInfo, experiences,
                     )}
                   </div>
                   <p style={{ fontSize: '13px', color: NAVY, fontWeight: 600, margin: '2px 0 6px' }}>{exp.company || 'Company'}</p>
-                  {exp.description && <p style={{ fontSize: '13px', color: '#4b5563', lineHeight: '1.6', margin: 0 }}>{exp.description}</p>}
+                  {exp.description && (
+                    <DescriptionText
+                      text={exp.description}
+                      bulleted={bulletsFor('experience')}
+                      style={{ fontSize: '13px', color: '#4b5563', lineHeight: '1.6' }}
+                    />
+                  )}
                 </div>
               )
           )}
@@ -89,12 +98,77 @@ const ExecutiveTemplate: React.FC<TemplateProps> = ({ personalInfo, experiences,
         </div>
       )}
 
+      {projects.filter((p) => p.name).length > 0 && (
+        <div style={{ marginTop: '28px' }}>
+          <SectionHeading>Key Projects</SectionHeading>
+          {projects.map(
+            (proj) =>
+              proj.name && (
+                <div key={proj.id} style={{ marginBottom: '14px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
+                    <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#1f2937', margin: 0 }}>{proj.name}</h3>
+                    {proj.link && <span style={{ fontSize: '12px', color: BRASS, fontStyle: 'italic' }}>{proj.link}</span>}
+                  </div>
+                  {proj.technologies && <p style={{ fontSize: '12.5px', color: NAVY, margin: '2px 0 4px' }}>{proj.technologies}</p>}
+                  {proj.description && (
+                    <DescriptionText
+                      text={proj.description}
+                      bulleted={bulletsFor('projects')}
+                      style={{ fontSize: '13px', color: '#4b5563', lineHeight: '1.6' }}
+                    />
+                  )}
+                </div>
+              )
+          )}
+        </div>
+      )}
+
       {skills.filter((s) => s.name).length > 0 && (
         <div style={{ marginTop: '28px' }}>
           <SectionHeading>Core Competencies</SectionHeading>
-          <p style={{ fontSize: '13px', color: '#374151', lineHeight: '1.9' }}>
-            {skills.filter((s) => s.name).map((s) => s.name).join('   •   ')}
-          </p>
+          {bulletsFor('skills') ? (
+            <VerticalList
+              items={skills.filter((s) => s.name).map((s) => ({ id: s.id, label: s.name }))}
+              style={{ fontSize: '13px', color: '#374151' }}
+              markerColor={BRASS}
+            />
+          ) : (
+            <p style={{ fontSize: '13px', color: '#374151', lineHeight: '1.9' }}>
+              {skills.filter((s) => s.name).map((s) => s.name).join('   •   ')}
+            </p>
+          )}
+        </div>
+      )}
+
+      {certifications.filter((c) => c.name).length > 0 && (
+        <div style={{ marginTop: '28px' }}>
+          <SectionHeading>Certifications</SectionHeading>
+          {certifications.map(
+            (cert) =>
+              cert.name && (
+                <div key={cert.id} style={{ marginBottom: '8px', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
+                  <span style={{ fontSize: '13px', color: '#1f2937' }}>{cert.name}{cert.issuer && `, ${cert.issuer}`}</span>
+                  {cert.date && <span style={{ fontSize: '12px', color: BRASS, fontStyle: 'italic' }}>{cert.date}</span>}
+                </div>
+              )
+          )}
+        </div>
+      )}
+
+      {languages.filter((l) => l.name).length > 0 && (
+        <div style={{ marginTop: '28px' }}>
+          <SectionHeading>Languages</SectionHeading>
+          {bulletsFor('languages') ? (
+            <VerticalList
+              items={languages.filter((l) => l.name).map((l) => ({ id: l.id, label: l.proficiency ? `${l.name} (${l.proficiency})` : l.name }))}
+              style={{ fontSize: '13px', color: '#374151' }}
+              markerColor={BRASS}
+            />
+          ) : (
+            <p style={{ fontSize: '13px', color: '#374151', lineHeight: '1.9' }}>
+              {languages.filter((l) => l.name).map((l) => (l.proficiency ? `${l.name} (${l.proficiency})` : l.name)).join('   •   ')}
+            </p>
+          )}
         </div>
       )}
     </div>

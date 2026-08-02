@@ -3,20 +3,22 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  Download, Copy, FileText, Plus, Trash2, Palette, Save, History as HistoryIcon, Check, Settings,
+  Download, Copy, FileText, Plus, Trash2, Palette, Save, History as HistoryIcon, Check, Settings, ChevronDown, Type,
 } from 'lucide-react';
 
 import ImageUpload from '../components/ImageUpload';
 import TemplateSelector from '../components/TemplateSelector';
 import SaveSettings from '../components/SaveSettings';
+import DownloadMenu from '../components/DownloadMenu';
+import FormattingSettings from '../components/FormattingSettings';
 import ResumeRenderer from '../templates';
-import { TEMPLATES } from '../types/resume';
+import { TEMPLATES, LINK_PLATFORMS } from '../types/resume';
 import type {
-  PersonalInfo, Experience, Education, Skill, TemplateId, SavedResume, ResumeContent,
+  PersonalInfo, Experience, Education, Skill, Project, Certification, LanguageItem, SocialLink, LinkPlatform, FormattingOptions, TemplateId, SavedResume, ResumeContent,
 } from '../types/resume';
-import { emptyPersonalInfo } from '../types/resume';
+import { emptyPersonalInfo, normalizeResumeContent, defaultFormattingOptions } from '../types/resume';
 import { getResume, createResume, updateResume } from '../lib/db';
-import { exportNodeToPDF, copyResumeToClipboard, captureResumeThumbnail } from '../lib/resumeUtils';
+import { exportNodeToPDF, exportATSFriendlyPDF, copyResumeToClipboard, captureResumeThumbnail } from '../lib/resumeUtils';
 
 const AUTOSAVE_STORAGE_KEY = 'resume-builder:autosave';
 const AUTOSAVE_DEBOUNCE_MS = 1800;
@@ -28,13 +30,26 @@ function readAutoSavePreference(): boolean {
   return stored === null ? true : stored === 'true';
 }
 
-function hasMeaningfulContent(personalInfo: PersonalInfo, experiences: Experience[], educations: Education[], skills: Skill[]): boolean {
+function hasMeaningfulContent(
+  personalInfo: PersonalInfo,
+  experiences: Experience[],
+  educations: Education[],
+  skills: Skill[],
+  projects: Project[],
+  certifications: Certification[],
+  languages: LanguageItem[],
+  links: SocialLink[]
+): boolean {
   return Boolean(
     personalInfo.fullName.trim() ||
     personalInfo.jobTitle.trim() ||
     experiences.length > 0 ||
     educations.length > 0 ||
-    skills.length > 0
+    skills.length > 0 ||
+    projects.length > 0 ||
+    certifications.length > 0 ||
+    languages.length > 0 ||
+    links.length > 0
   );
 }
 
@@ -48,12 +63,22 @@ function ResumeBuilder() {
   const [experiences, setExperiences] = useState<Experience[]>([]);
   const [educations, setEducations] = useState<Education[]>([]);
   const [skills, setSkills] = useState<Skill[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [certifications, setCertifications] = useState<Certification[]>([]);
+  const [languages, setLanguages] = useState<LanguageItem[]>([]);
+  const [links, setLinks] = useState<SocialLink[]>([]);
   const [templateId, setTemplateId] = useState<TemplateId>('classic');
+  const [formatting, setFormatting] = useState<FormattingOptions>({
+    ...defaultFormattingOptions,
+    sections: { ...defaultFormattingOptions.sections },
+  });
 
   const [activeSection, setActiveSection] = useState<string>('personal');
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [showSaveSettings, setShowSaveSettings] = useState(false);
+  const [showFormattingSettings, setShowFormattingSettings] = useState(false);
+  const [showDownloadMenu, setShowDownloadMenu] = useState(false);
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'pending' | 'saving' | 'saved'>('idle');
   const [autoSaveEnabled, setAutoSaveEnabled] = useState<boolean>(readAutoSavePreference);
@@ -81,14 +106,20 @@ function ResumeBuilder() {
     getResume(id).then((record) => {
       if (cancelled) return;
       if (record) {
+        const normalized = normalizeResumeContent(record);
         skipDirtyOnceRef.current = true;
         setResumeId(record.id);
         setTitle(record.title);
-        setPersonalInfo(record.personalInfo);
-        setExperiences(record.experiences);
-        setEducations(record.educations);
-        setSkills(record.skills);
-        setTemplateId(record.templateId);
+        setPersonalInfo(normalized.personalInfo);
+        setExperiences(normalized.experiences);
+        setEducations(normalized.educations);
+        setSkills(normalized.skills);
+        setProjects(normalized.projects);
+        setCertifications(normalized.certifications);
+        setLanguages(normalized.languages);
+        setLinks(normalized.links);
+        setTemplateId(normalized.templateId);
+        setFormatting(normalized.formatting);
       } else {
         // Unknown id - treat as a fresh resume
         navigate('/resumebuilder', { replace: true });
@@ -133,6 +164,38 @@ function ResumeBuilder() {
   };
   const removeSkill = (id: string) => setSkills((prev) => prev.filter((skill) => skill.id !== id));
 
+  const addProject = () => {
+    setProjects((prev) => [...prev, { id: Date.now().toString(), name: '', description: '', technologies: '', link: '' }]);
+  };
+  const updateProject = (id: string, field: keyof Project, value: string) => {
+    setProjects((prev) => prev.map((proj) => (proj.id === id ? { ...proj, [field]: value } : proj)));
+  };
+  const removeProject = (id: string) => setProjects((prev) => prev.filter((proj) => proj.id !== id));
+
+  const addCertification = () => {
+    setCertifications((prev) => [...prev, { id: Date.now().toString(), name: '', issuer: '', date: '' }]);
+  };
+  const updateCertification = (id: string, field: keyof Certification, value: string) => {
+    setCertifications((prev) => prev.map((cert) => (cert.id === id ? { ...cert, [field]: value } : cert)));
+  };
+  const removeCertification = (id: string) => setCertifications((prev) => prev.filter((cert) => cert.id !== id));
+
+  const addLanguage = () => {
+    setLanguages((prev) => [...prev, { id: Date.now().toString(), name: '', proficiency: '' }]);
+  };
+  const updateLanguage = (id: string, field: keyof LanguageItem, value: string) => {
+    setLanguages((prev) => prev.map((lang) => (lang.id === id ? { ...lang, [field]: value } : lang)));
+  };
+  const removeLanguage = (id: string) => setLanguages((prev) => prev.filter((lang) => lang.id !== id));
+
+  const addLink = () => {
+    setLinks((prev) => [...prev, { id: Date.now().toString(), platform: 'linkedin' as LinkPlatform, url: '', customLabel: '' }]);
+  };
+  const updateLink = (id: string, field: keyof SocialLink, value: string) => {
+    setLinks((prev) => prev.map((link) => (link.id === id ? { ...link, [field]: value } : link)));
+  };
+  const removeLink = (id: string) => setLinks((prev) => prev.filter((link) => link.id !== id));
+
   // Mark the resume dirty whenever meaningful data changes - but not on the
   // initial load of an existing resume, which also touches all this state.
   useEffect(() => {
@@ -144,7 +207,7 @@ function ResumeBuilder() {
     isDirtyRef.current = true;
     setAutoSaveStatus((prev) => (prev === 'saving' ? prev : 'pending'));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [personalInfo, experiences, educations, skills, templateId, title, loading]);
+  }, [personalInfo, experiences, educations, skills, projects, certifications, languages, links, templateId, formatting, title, loading]);
 
   // Warn before leaving the page if there are unsaved changes and autosave is off
   useEffect(() => {
@@ -167,7 +230,7 @@ function ResumeBuilder() {
 
       try {
         const effectiveTitle = title.trim() || personalInfo.fullName || 'Untitled Resume';
-        const content: ResumeContent = { personalInfo, experiences, educations, skills, templateId };
+        const content: ResumeContent = { personalInfo, experiences, educations, skills, projects, certifications, languages, links, templateId, formatting };
 
         // Manual saves always refresh the thumbnail; autosaves refresh it at
         // most once a minute so typing doesn't trigger constant canvas renders.
@@ -204,13 +267,13 @@ function ResumeBuilder() {
         isSavingRef.current = false;
       }
     },
-    [title, personalInfo, experiences, educations, skills, templateId, resumeId, navigate]
+    [title, personalInfo, experiences, educations, skills, projects, certifications, languages, links, templateId, formatting, resumeId, navigate]
   );
 
   // Debounced autosave - fires a couple of seconds after the last change
   useEffect(() => {
     if (loading || !autoSaveEnabled) return;
-    if (!hasMeaningfulContent(personalInfo, experiences, educations, skills)) return;
+    if (!hasMeaningfulContent(personalInfo, experiences, educations, skills, projects, certifications, languages, links)) return;
     if (!isDirtyRef.current) return;
 
     const timer = setTimeout(() => {
@@ -219,7 +282,7 @@ function ResumeBuilder() {
 
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [personalInfo, experiences, educations, skills, templateId, title, autoSaveEnabled, loading]);
+  }, [personalInfo, experiences, educations, skills, projects, certifications, languages, links, templateId, formatting, title, autoSaveEnabled, loading]);
 
   const downloadPDF = async () => {
     if (!resumeRef.current) return;
@@ -234,14 +297,23 @@ function ResumeBuilder() {
     }
   };
 
+  const downloadATSPDF = () => {
+    try {
+      exportATSFriendlyPDF({ personalInfo, experiences, educations, skills, projects, certifications, languages, links, formatting }, personalInfo.fullName || 'Resume');
+    } catch (error) {
+      console.error('ATS PDF generation error:', error);
+      alert('Failed to generate the ATS-friendly PDF. Please try again.');
+    }
+  };
+
   const copyToClipboard = useCallback(async () => {
     try {
-      await copyResumeToClipboard({ personalInfo, experiences, educations, skills });
+      await copyResumeToClipboard({ personalInfo, experiences, educations, skills, projects, certifications, languages, links, formatting });
       alert('✓ Resume copied to clipboard!\n\nPaste into Word or Google Docs for formatted version, or paste as plain text.');
     } catch {
       alert('Could not copy to clipboard in this browser.');
     }
-  }, [personalInfo, experiences, educations, skills]);
+  }, [personalInfo, experiences, educations, skills, projects, certifications, languages, links, formatting]);
 
   const currentTemplateMeta = TEMPLATES.find((t) => t.id === templateId);
 
@@ -302,6 +374,17 @@ function ResumeBuilder() {
                 {currentTemplateMeta?.name || 'Template'}
               </button>
               <button
+                onClick={() => setShowFormattingSettings((v) => !v)}
+                title="Bullets & bold"
+                aria-label="Bullets and bold formatting settings"
+                className="relative flex items-center gap-2 px-3 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              >
+                <Type className="w-4 h-4" />
+                {formatting.enabled && (
+                  <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-blue-600 rounded-full border-2 border-white dark:border-gray-800" />
+                )}
+              </button>
+              <button
                 onClick={() => setShowSaveSettings((v) => !v)}
                 title="Save settings"
                 aria-label="Save settings"
@@ -325,14 +408,15 @@ function ResumeBuilder() {
                 Copy Text
               </button>
               <button
-                onClick={downloadPDF}
+                onClick={() => setShowDownloadMenu((v) => !v)}
                 disabled={isGeneratingPDF}
                 className={`flex items-center gap-2 px-4 py-2 text-white rounded-lg transition-colors ${
                   isGeneratingPDF ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
                 }`}
               >
                 <Download className="w-4 h-4" />
-                {isGeneratingPDF ? 'Generating...' : 'Download PDF'}
+                {isGeneratingPDF ? 'Generating...' : 'Download'}
+                <ChevronDown className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
@@ -344,18 +428,27 @@ function ResumeBuilder() {
           {/* Form Section */}
           <div className="lg:w-2/5 xl:w-1/3">
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md sticky top-20 max-h-[calc(100vh-5rem)] overflow-y-auto transition-colors duration-300">
-              <div className="flex border-b border-gray-200 dark:border-gray-700">
-                {['personal', 'experience', 'education', 'skills'].map((section) => (
+              <div className="flex flex-wrap gap-1.5 p-3 border-b border-gray-200 dark:border-gray-700">
+                {[
+                  { id: 'personal', label: 'Personal' },
+                  { id: 'experience', label: 'Experience' },
+                  { id: 'education', label: 'Education' },
+                  { id: 'skills', label: 'Skills' },
+                  { id: 'projects', label: 'Projects' },
+                  { id: 'certifications', label: 'Certifications' },
+                  { id: 'languages', label: 'Languages' },
+                  { id: 'links', label: 'Links' },
+                ].map((section) => (
                   <button
-                    key={section}
-                    onClick={() => setActiveSection(section)}
-                    className={`flex-1 px-4 py-3 text-sm font-medium capitalize transition-colors ${
-                      activeSection === section
-                        ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
-                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                    key={section.id}
+                    onClick={() => setActiveSection(section.id)}
+                    className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                      activeSection === section.id
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                     }`}
                   >
-                    {section}
+                    {section.label}
                   </button>
                 ))}
               </div>
@@ -393,18 +486,6 @@ function ResumeBuilder() {
                       <input type="text" name="location" value={personalInfo.location} onChange={handlePersonalChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Website</label>
-                      <input type="text" name="website" value={personalInfo.website} onChange={handlePersonalChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">LinkedIn</label>
-                      <input type="text" name="linkedin" value={personalInfo.linkedin} onChange={handlePersonalChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">GitHub</label>
-                      <input type="text" name="github" value={personalInfo.github} onChange={handlePersonalChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                    </div>
-                    <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Professional Summary</label>
                       <textarea name="summary" value={personalInfo.summary} onChange={handlePersonalChange} rows={4} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
                     </div>
@@ -425,6 +506,11 @@ function ResumeBuilder() {
                           <input type="text" placeholder="End Date" value={exp.endDate} onChange={(e) => updateExperience(exp.id, 'endDate', e.target.value)} className="px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded-md" />
                         </div>
                         <textarea placeholder="Description" value={exp.description} onChange={(e) => updateExperience(exp.id, 'description', e.target.value)} rows={3} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded-md" />
+                        {formatting.enabled && formatting.sections.experience && (
+                          <p className="text-xs text-gray-400 dark:text-gray-500 -mt-1">
+                            Bullets on: one line = one bullet. Use **text** to bold a word or phrase.
+                          </p>
+                        )}
                       </div>
                     ))}
                     <button onClick={addExperience} className="w-full py-2 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-gray-600 dark:text-gray-400 hover:border-blue-500 hover:text-blue-600 transition-colors flex items-center justify-center gap-2">
@@ -474,6 +560,133 @@ function ResumeBuilder() {
                     </button>
                   </div>
                 )}
+
+                {activeSection === 'projects' && (
+                  <div className="space-y-6">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 -mt-1">
+                      Great for showing proof of work — portfolio pieces, side projects, open-source contributions, or notable initiatives at work.
+                    </p>
+                    {projects.map((proj) => (
+                      <div key={proj.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-3 relative">
+                        <button onClick={() => removeProject(proj.id)} className="absolute top-2 right-2 text-red-500 hover:text-red-700">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                        <input type="text" placeholder="Project name" value={proj.name} onChange={(e) => updateProject(proj.id, 'name', e.target.value)} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded-md" />
+                        <input type="text" placeholder="Technologies used (e.g. React, Node.js, PostgreSQL)" value={proj.technologies} onChange={(e) => updateProject(proj.id, 'technologies', e.target.value)} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded-md" />
+                        <input type="text" placeholder="Link (optional - live URL, repo, case study)" value={proj.link} onChange={(e) => updateProject(proj.id, 'link', e.target.value)} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded-md" />
+                        <textarea placeholder="Description" value={proj.description} onChange={(e) => updateProject(proj.id, 'description', e.target.value)} rows={3} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded-md" />
+                        {formatting.enabled && formatting.sections.projects && (
+                          <p className="text-xs text-gray-400 dark:text-gray-500 -mt-1">
+                            Bullets on: one line = one bullet. Use **text** to bold a word or phrase.
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                    <button onClick={addProject} className="w-full py-2 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-gray-600 dark:text-gray-400 hover:border-blue-500 hover:text-blue-600 transition-colors flex items-center justify-center gap-2">
+                      <Plus className="w-4 h-4" />
+                      Add Project
+                    </button>
+                  </div>
+                )}
+
+                {activeSection === 'certifications' && (
+                  <div className="space-y-6">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 -mt-1">
+                      Professional certifications, licenses, or credentials — cloud platforms, project management, industry-specific licenses, etc.
+                    </p>
+                    {certifications.map((cert) => (
+                      <div key={cert.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-3 relative">
+                        <button onClick={() => removeCertification(cert.id)} className="absolute top-2 right-2 text-red-500 hover:text-red-700">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                        <input type="text" placeholder="Certification name" value={cert.name} onChange={(e) => updateCertification(cert.id, 'name', e.target.value)} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded-md" />
+                        <input type="text" placeholder="Issuing organization" value={cert.issuer} onChange={(e) => updateCertification(cert.id, 'issuer', e.target.value)} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded-md" />
+                        <input type="text" placeholder="Date issued (e.g. 2024-06)" value={cert.date} onChange={(e) => updateCertification(cert.id, 'date', e.target.value)} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded-md" />
+                      </div>
+                    ))}
+                    <button onClick={addCertification} className="w-full py-2 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-gray-600 dark:text-gray-400 hover:border-blue-500 hover:text-blue-600 transition-colors flex items-center justify-center gap-2">
+                      <Plus className="w-4 h-4" />
+                      Add Certification
+                    </button>
+                  </div>
+                )}
+
+                {activeSection === 'languages' && (
+                  <div className="space-y-4">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 -mt-1">
+                      Especially useful when applying internationally — list each language and your proficiency level.
+                    </p>
+                    {languages.map((lang) => (
+                      <div key={lang.id} className="flex items-center gap-2">
+                        <input type="text" placeholder="Language (e.g. Spanish)" value={lang.name} onChange={(e) => updateLanguage(lang.id, 'name', e.target.value)} className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded-md" />
+                        <select
+                          value={lang.proficiency}
+                          onChange={(e) => updateLanguage(lang.id, 'proficiency', e.target.value)}
+                          className="px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded-md"
+                        >
+                          <option value="">Proficiency</option>
+                          <option value="Native">Native</option>
+                          <option value="Fluent">Fluent</option>
+                          <option value="Advanced">Advanced</option>
+                          <option value="Conversational">Conversational</option>
+                          <option value="Basic">Basic</option>
+                        </select>
+                        <button onClick={() => removeLanguage(lang.id)} className="text-red-500 hover:text-red-700">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                    <button onClick={addLanguage} className="w-full py-2 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-gray-600 dark:text-gray-400 hover:border-blue-500 hover:text-blue-600 transition-colors flex items-center justify-center gap-2">
+                      <Plus className="w-4 h-4" />
+                      Add Language
+                    </button>
+                  </div>
+                )}
+
+                {activeSection === 'links' && (
+                  <div className="space-y-4">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 -mt-1">
+                      Pick a platform and paste the URL. Your resume shows just the platform name (e.g. "LinkedIn"),
+                      not the raw link — but it's still a real clickable link wherever you view or download it.
+                    </p>
+                    {links.map((link) => (
+                      <div key={link.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-3 relative">
+                        <button onClick={() => removeLink(link.id)} className="absolute top-2 right-2 text-red-500 hover:text-red-700">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                        <select
+                          value={link.platform}
+                          onChange={(e) => updateLink(link.id, 'platform', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded-md"
+                        >
+                          {LINK_PLATFORMS.map((p) => (
+                            <option key={p.id} value={p.id}>{p.label}</option>
+                          ))}
+                        </select>
+                        {link.platform === 'other' && (
+                          <input
+                            type="text"
+                            placeholder="Label to show on your resume (e.g. Blog)"
+                            value={link.customLabel}
+                            onChange={(e) => updateLink(link.id, 'customLabel', e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded-md"
+                          />
+                        )}
+                        <input
+                          type="text"
+                          placeholder="URL (e.g. linkedin.com/in/yourname)"
+                          value={link.url}
+                          onChange={(e) => updateLink(link.id, 'url', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded-md"
+                        />
+                      </div>
+                    ))}
+                    <button onClick={addLink} className="w-full py-2 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-gray-600 dark:text-gray-400 hover:border-blue-500 hover:text-blue-600 transition-colors flex items-center justify-center gap-2">
+                      <Plus className="w-4 h-4" />
+                      Add Link
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -491,6 +704,11 @@ function ResumeBuilder() {
                   experiences={experiences}
                   educations={educations}
                   skills={skills}
+                  projects={projects}
+                  certifications={certifications}
+                  languages={languages}
+                  links={links}
+                  formatting={formatting}
                 />
               </div>
             </div>
@@ -511,6 +729,23 @@ function ResumeBuilder() {
           autoSaveEnabled={autoSaveEnabled}
           onToggle={setAutoSaveEnabled}
           onClose={() => setShowSaveSettings(false)}
+        />
+      )}
+
+      {showFormattingSettings && (
+        <FormattingSettings
+          formatting={formatting}
+          onChange={setFormatting}
+          onClose={() => setShowFormattingSettings(false)}
+        />
+      )}
+
+      {showDownloadMenu && (
+        <DownloadMenu
+          onDownloadVisual={downloadPDF}
+          onDownloadATS={downloadATSPDF}
+          isGenerating={isGeneratingPDF}
+          onClose={() => setShowDownloadMenu(false)}
         />
       )}
     </div>

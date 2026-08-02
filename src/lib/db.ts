@@ -3,6 +3,7 @@
 // in the browser. No external dependency required.
 
 import type { SavedResume, ResumeContent } from '../types/resume';
+import { normalizeResumeContent } from '../types/resume';
 
 const DB_NAME = 'resume-builder-db';
 const DB_VERSION = 1;
@@ -40,7 +41,7 @@ export async function listResumes(): Promise<SavedResume[]> {
     const store = tx.objectStore(STORE_NAME);
     const request = store.getAll();
     request.onsuccess = () => {
-      const results = (request.result as SavedResume[]) || [];
+      const results = ((request.result as SavedResume[]) || []).map((r) => normalizeResumeContent(r) as SavedResume);
       results.sort((a, b) => b.updatedAt - a.updatedAt);
       resolve(results);
     };
@@ -54,7 +55,10 @@ export async function getResume(id: string): Promise<SavedResume | undefined> {
     const tx = db.transaction(STORE_NAME, 'readonly');
     const store = tx.objectStore(STORE_NAME);
     const request = store.get(id);
-    request.onsuccess = () => resolve(request.result as SavedResume | undefined);
+    request.onsuccess = () => {
+      const result = request.result as SavedResume | undefined;
+      resolve(result ? (normalizeResumeContent(result) as SavedResume) : undefined);
+    };
     request.onerror = () => reject(request.error);
   });
 }

@@ -2,6 +2,9 @@
 
 import React from 'react';
 import type { TemplateProps } from './types';
+import { DescriptionText, VerticalList } from '../components/FormattedText';
+import { linkLabel, normalizeLinkUrl } from '../types/resume';
+import { telHref, mailtoHref, mapsHref } from '../lib/contactLinks';
 
 const BG = '#0d1117';
 const PANEL = '#161b22';
@@ -18,7 +21,8 @@ const CommentHeading: React.FC<{ children: React.ReactNode }> = ({ children }) =
   </p>
 );
 
-const TechnicalTemplate: React.FC<TemplateProps> = ({ personalInfo, experiences, educations, skills }) => {
+const TechnicalTemplate: React.FC<TemplateProps> = ({ personalInfo, experiences, educations, skills, projects = [], certifications = [], languages = [], links = [], formatting }) => {
+  const bulletsFor = (section: 'experience' | 'projects' | 'skills' | 'languages') => Boolean(formatting?.enabled && formatting.sections[section]);
   return (
     <div className="shadow-xl rounded-lg overflow-hidden" style={{ backgroundColor: BG, fontFamily: MONO, color: TEXT }}>
       {/* Fake editor tab bar */}
@@ -48,10 +52,17 @@ const TechnicalTemplate: React.FC<TemplateProps> = ({ personalInfo, experiences,
         </div>
 
         <div style={{ marginLeft: '16px', fontSize: '12.5px', color: '#8b949e', marginBottom: '20px', display: 'flex', flexWrap: 'wrap', gap: '4px 14px' }}>
-          {personalInfo.email && <span>email: <span style={{ color: '#a5d6ff' }}>"{personalInfo.email}"</span></span>}
-          {personalInfo.phone && <span>phone: <span style={{ color: '#a5d6ff' }}>"{personalInfo.phone}"</span></span>}
-          {personalInfo.location && <span>location: <span style={{ color: '#a5d6ff' }}>"{personalInfo.location}"</span></span>}
-          {personalInfo.github && <span>github: <span style={{ color: '#a5d6ff' }}>"{personalInfo.github}"</span></span>}
+          {personalInfo.email && <span>email: <a href={mailtoHref(personalInfo.email)} style={{ color: '#a5d6ff', textDecoration: 'none' }}>"{personalInfo.email}"</a></span>}
+          {personalInfo.phone && <span>phone: <a href={telHref(personalInfo.phone)} style={{ color: '#a5d6ff', textDecoration: 'none' }}>"{personalInfo.phone}"</a></span>}
+          {personalInfo.location && <span>location: <a href={mapsHref(personalInfo.location)} target="_blank" rel="noopener noreferrer" style={{ color: '#a5d6ff', textDecoration: 'none' }}>"{personalInfo.location}"</a></span>}
+          {links.filter((l) => l.url.trim()).map((link) => (
+            <span key={link.id}>
+              {link.platform}:{' '}
+              <a href={normalizeLinkUrl(link.url)} target="_blank" rel="noopener noreferrer" style={{ color: '#a5d6ff', textDecoration: 'none' }}>
+                "{linkLabel(link)}"
+              </a>
+            </span>
+          ))}
         </div>
         <p style={{ fontSize: '13px', color: '#e3b341', marginTop: '-10px', marginBottom: '24px' }}>{'};'}</p>
 
@@ -74,7 +85,13 @@ const TechnicalTemplate: React.FC<TemplateProps> = ({ personalInfo, experiences,
                       {(exp.startDate || exp.endDate) && <span style={{ fontSize: '11.5px', color: '#6e7681' }}>{exp.startDate} → {exp.endDate}</span>}
                     </div>
                     <p style={{ fontSize: '13px', color: BLUE, margin: '2px 0 6px' }}>@{exp.company || 'company'}</p>
-                    {exp.description && <p style={{ fontSize: '12.5px', color: '#8b949e', lineHeight: '1.6', margin: 0 }}>{exp.description}</p>}
+                    {exp.description && (
+                      <DescriptionText
+                        text={exp.description}
+                        bulleted={bulletsFor('experience')}
+                        style={{ fontSize: '12.5px', color: '#8b949e', lineHeight: '1.6' }}
+                      />
+                    )}
                   </div>
                 )
             )}
@@ -96,22 +113,97 @@ const TechnicalTemplate: React.FC<TemplateProps> = ({ personalInfo, experiences,
           </div>
         )}
 
+        {projects.filter((p) => p.name).length > 0 && (
+          <div style={{ marginBottom: '24px' }}>
+            <CommentHeading>projects</CommentHeading>
+            {projects.map(
+              (proj) =>
+                proj.name && (
+                  <div key={proj.id} style={{ marginBottom: '12px', paddingLeft: '14px', borderLeft: `2px solid #30363d` }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '4px' }}>
+                      <span style={{ fontSize: '14px', color: '#f0f6fc', fontWeight: 700 }}>{proj.name}</span>
+                      {proj.link && <span style={{ fontSize: '11.5px', color: '#6e7681' }}>{proj.link}</span>}
+                    </div>
+                    {proj.technologies && <p style={{ fontSize: '12px', color: BLUE, margin: '2px 0 4px' }}>{proj.technologies}</p>}
+                    {proj.description && (
+                      <DescriptionText
+                        text={proj.description}
+                        bulleted={bulletsFor('projects')}
+                        style={{ fontSize: '12.5px', color: '#8b949e', lineHeight: '1.6' }}
+                      />
+                    )}
+                  </div>
+                )
+            )}
+          </div>
+        )}
+
         {skills.filter((s) => s.name).length > 0 && (
-          <div>
+          <div style={{ marginBottom: '24px' }}>
             <CommentHeading>skills</CommentHeading>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-              {skills.map(
-                (skill) =>
-                  skill.name && (
-                    <span
-                      key={skill.id}
-                      style={{ fontSize: '12px', backgroundColor: '#21262d', color: '#a5d6ff', padding: '4px 10px', borderRadius: '6px', border: '1px solid #30363d' }}
-                    >
-                      {skill.name}
-                    </span>
-                  )
-              )}
-            </div>
+            {bulletsFor('skills') ? (
+              <VerticalList
+                items={skills.filter((s) => s.name).map((s) => ({ id: s.id, label: s.name }))}
+                style={{ fontSize: '12.5px', color: TEXT }}
+                markerColor={BLUE}
+              />
+            ) : (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                {skills.map(
+                  (skill) =>
+                    skill.name && (
+                      <span
+                        key={skill.id}
+                        style={{ fontSize: '12px', backgroundColor: '#21262d', color: '#a5d6ff', padding: '4px 10px', borderRadius: '6px', border: '1px solid #30363d' }}
+                      >
+                        {skill.name}
+                      </span>
+                    )
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {certifications.filter((c) => c.name).length > 0 && (
+          <div style={{ marginBottom: '24px' }}>
+            <CommentHeading>certifications</CommentHeading>
+            {certifications.map(
+              (cert) =>
+                cert.name && (
+                  <div key={cert.id} style={{ marginBottom: '6px', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
+                    <span style={{ fontSize: '13px', color: '#f0f6fc' }}>{cert.name}{cert.issuer && ` — ${cert.issuer}`}</span>
+                    {cert.date && <span style={{ fontSize: '11.5px', color: '#6e7681' }}>{cert.date}</span>}
+                  </div>
+                )
+            )}
+          </div>
+        )}
+
+        {languages.filter((l) => l.name).length > 0 && (
+          <div>
+            <CommentHeading>languages</CommentHeading>
+            {bulletsFor('languages') ? (
+              <VerticalList
+                items={languages.filter((l) => l.name).map((l) => ({ id: l.id, label: l.proficiency ? `${l.name} (${l.proficiency})` : l.name }))}
+                style={{ fontSize: '12.5px', color: TEXT }}
+                markerColor={BLUE}
+              />
+            ) : (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                {languages.map(
+                  (lang) =>
+                    lang.name && (
+                      <span
+                        key={lang.id}
+                        style={{ fontSize: '12px', backgroundColor: '#21262d', color: '#a5d6ff', padding: '4px 10px', borderRadius: '6px', border: '1px solid #30363d' }}
+                      >
+                        {lang.name}{lang.proficiency && ` (${lang.proficiency})`}
+                      </span>
+                    )
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>

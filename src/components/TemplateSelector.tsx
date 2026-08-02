@@ -1,7 +1,7 @@
 // FILE: src/components/TemplateSelector.tsx
 
 import React from 'react';
-import { Check, X } from 'lucide-react';
+import { Check, X, ShieldCheck } from 'lucide-react';
 import { TEMPLATES } from '../types/resume';
 import type { TemplateId } from '../types/resume';
 
@@ -28,12 +28,18 @@ const TemplateSelector: React.FC<TemplateSelectorProps> = ({ selected, onSelect,
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div
-        className="bg-white rounded-xl shadow-2xl max-w-5xl w-full max-h-[85vh] overflow-y-auto"
+        className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-5xl w-full max-h-[85vh] overflow-y-auto transition-colors duration-300"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 sticky top-0 bg-white">
-          <h2 className="text-lg font-bold text-gray-900">Choose a template</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700 sticky top-0 bg-white dark:bg-gray-800">
+          <div>
+            <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">Choose a template</h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 flex items-center gap-1">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+              ATS-Safe templates parse cleanly in applicant tracking systems (single column, no split text).
+            </p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 shrink-0 ml-4">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -49,21 +55,32 @@ const TemplateSelector: React.FC<TemplateSelectorProps> = ({ selected, onSelect,
                   onClose();
                 }}
                 className={`text-left rounded-lg border-2 overflow-hidden transition-colors ${
-                  isSelected ? 'border-blue-600' : 'border-gray-200 hover:border-gray-300'
+                  isSelected ? 'border-blue-600' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
                 }`}
               >
                 <div className="h-28 w-full" style={SWATCH_STYLES[tpl.id]} />
                 <div className="p-3">
-                  <div className="flex items-center justify-between">
-                    <span className="font-semibold text-gray-900">{tpl.name}</span>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-semibold text-gray-900 dark:text-gray-100">{tpl.name}</span>
                     {isSelected && (
-                      <span className="flex items-center gap-1 text-xs text-blue-600 font-medium">
+                      <span className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 font-medium shrink-0">
                         <Check className="w-3.5 h-3.5" /> Selected
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">{tpl.description}</p>
-                  {!tpl.supportsPhoto && <p className="text-xs text-gray-400 mt-1">No photo support</p>}
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{tpl.description}</p>
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {tpl.atsFriendly && (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full">
+                        <ShieldCheck className="w-3 h-3" /> ATS-Safe
+                      </span>
+                    )}
+                    {!tpl.supportsPhoto && (
+                      <span className="inline-flex items-center text-[11px] font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full">
+                        No photo
+                      </span>
+                    )}
+                  </div>
                 </div>
               </button>
             );

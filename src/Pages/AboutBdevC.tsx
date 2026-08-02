@@ -113,7 +113,7 @@ const AboutDeveloper: React.FC = () => {
         <a href={`https://wa.me/${WHATSAPP}`} target="_blank" className="bg-green-500 hover:bg-green-800 p-3 rounded-lg text-center">WhatsApp</a>
         <a href={`tel:${PHONE}`} className="bg-blue-500 hover:bg-blue-800 p-3 rounded-lg text-center">Call</a>
         <a href="mailto:bdevc@gmail.com?subject=Work%20With%20BDevC"
-          className="bg-linear-to-r from-cyan-500 to-purple-600 hover:opacity-90 transition px-6 py-3 rounded-full text-white text-center font-semibold shadow-lg"
+          className="bg-white hover:bg-orange-400 hover:text-white px-6 py-3 rounded-full text-cyan-500 text-center font-semibold shadow-lg"
         >
           Contact via Email
         </a>
